@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        canvas { width: 300px; height: 300px; display: inline-block; margin: 10px; border: 1px solid #ccc; }
+        .container { text-align: center; padding: 20px; }
+        h3 { margin: 15px 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+    
+    <!-- 结构1：三角四面体桁架 -->
+    <h3>1. 三角四面体桁架 (使用6根筷子)</h3>
+    <canvas id="structure1"></canvas>
+
+    <!-- 结构2：六边形空间桁架 -->
+    <h3>2. 六边形空间桁架 (使用18根筷子)</h3>
+    <canvas id="structure2"></canvas>
+
+    <!-- 结构3：双层立方框架 -->
+    <h3>3. 双层立方框架 (使用16根筷子)</h3>
+    <canvas id="structure3"></canvas>
+
+    <!-- 结构4：金字塔桁架 -->
+    <h3>4. 金字塔桁架 (使用12根筷子)</h3>
+    <canvas id="structure4"></canvas>
+
+    <!-- 结构5：X型交叉拱桥 -->
+    <h3>5. X型交叉拱桥 (使用20根筷子)</h3>
+    <canvas id="structure5"></canvas>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// 通用创建函数
+function createStructure(id, setupFunc) {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById(id) });
+    
+    renderer.setSize(300, 300);
+    camera.position.z = 5;
+    scene.background = new THREE.Color(0xf0f0f0);
+
+    // 创建筷子（棕色圆柱体）
+    function createChopstick(x1, y1, z1, x2, y2, z2) {
+        const length = Math.hypot(x2-x1, y2-y1, z2-z1);
+        const geometry = new THREE.CylinderGeometry(0.05, 0.05, length, 8);
+        const material = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
+        const cylinder = new THREE.Mesh(geometry, material);
+        
+        cylinder.position.set((x1+x2)/2, (y1+y2)/2, (z1+z2)/2);
+        cylinder.rotation.z = Math.atan2(y2-y1, x2-x1);
+        cylinder.rotation.y = Math.atan2(z2-z1, x2-x1);
+        return cylinder;
+    }
+
+    // 创建橡皮筋（红色连接线）
+    function createRubberBand(p1, p2) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        return new THREE.Line(geometry, material);
+    }
+
+    setupFunc(scene, createChopstick, createRubberBand);
+    
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+    animate();
+}
+
+// 结构1：三角四面体
+createStructure('structure1', (scene, c, r) => {
+    const points = [
+        [0,0,0], [2,0,0], [1,1.732,0], [1,0.577,1.632]
+    ];
+    scene.add(c(...points[0], ...points[1]));
+    scene.add(c(...points[0], ...points[2]));
+    scene.add(c(...points[0], ...points[3]));
+    scene.add(c(...points[1], ...points[2]));
+    scene.add(c(...points[1], ...points[3]));
+    scene.add(c(...points[2], ...points[3]));
+});
+
+// 结构2：六边形空间桁架
+createStructure('structure2', (scene, c, r) => {
+    // 上下两个六边形
+    for(let z=0; z<=1; z+=1){
+        for(let i=0; i<6; i++){
+            const angle = Math.PI/3*i;
+            const x1 = Math.cos(angle)*2, y1 = Math.sin(angle)*2;
+            const x2 = Math.cos(angle+Math.PI/3)*2, y2 = Math.sin(angle+Math.PI/3)*2;
+            scene.add(c(x1,y1,z, x2,y2,z));
+        }
+    }
+    // 垂直连接
+    for(let i=0; i<6; i++){
+        const angle = Math.PI/3*i;
+        scene.add(c(Math.cos(angle)*2, Math.sin(angle)*2,0, Math.cos(angle)*2, Math.sin(angle)*2,1));
+    }
+});
+
+// 结构3：双层立方框架
+createStructure('structure3', (scene, c, r) => {
+    // 底层立方体
+    for(let x=0; x<=1; x+=1)
+    for(let y=0; y<=1; y+=1)
+    for(let z=0; z<=1; z+=1){
+        if(x+y+z === 2) scene.add(c(x*2,y*2,0, (1-x)*2,y*2,0));
+        if(x+y+z === 2) scene.add(c(x*2,y*2,0, x*2,(1-y)*2,0));
+    }
+    // 上层立方体
+    for(let x=0; x<=1; x+=1)
+    for(let y=0; y<=1; y+=1){
+        scene.add(c(x*2,y*2,0, x*2,y*2,2));
+    }
+});
+
+// 结构4：金字塔桁架
+createStructure('structure4', (scene, c, r) => {
+    const base = [[-2,-2,0], [2,-2,0], [2,2,0], [-2,2,0]];
+    const top = [0,0,3];
+    // 底面
+    base.forEach((p,i) => scene.add(c(...p, ...base[(i+1)%4])));
+    // 侧面
+    base.forEach(p => scene.add(c(...p, ...top)));
+    // 交叉支撑
+    scene.add(c(...base[0], ...base[2]));
+    scene.add(c(...base[1], ...base[3]));
+});
+
+// 结构5：X型交叉拱桥
+createStructure('structure5', (scene, c, r) => {
+    // 主拱
+    for(let i=-5; i<=5; i++){
+        const y = Math.sqrt(25 - i*i)*0.6;
+        if(i>-5) scene.add(c(i-1,y,0, i,y,0));
+    }
+    // X型支撑
+    for(let i=-4; i<=4; i++){
+        scene.add(c(i,Math.sqrt(25-i*i)*0.6,0, i+2,Math.sqrt(25-(i+2)*(i+2))*0.6,0));
+        scene.add(c(i,Math.sqrt(25-i*i)*0.6,0, i-2,Math.sqrt(25-(i-2)*(i-2))*0.6,0));
+    }
+});
+</script>
+</body>
+</html>
